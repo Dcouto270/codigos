@@ -1,0 +1,249 @@
+#Descarga_inicial
+
+import os
+import time
+import requests
+from pathlib import Path
+from dateutil import parser as dt
+from dateutil.relativedelta import relativedelta
+import pandas as pd
+from tqdm import tqdm
+
+TOKEN = "" 
+DEST_DIR = Path(r"")
+BASE_URL = "https://api.hubapi.com"
+HEADERS = {"Authorization": f"Bearer {TOKEN}"}
+
+# ─── FUNCIONES ───────────────────────────────────────────────────────────────
+
+def iso2date(iso_str):
+    return dt.parse(iso_str).date() if iso_str else None
+
+def get_programa_labels():
+    url = f"{BASE_URL}/crm/v3/properties/deals/programa"
+    response = requests.get(url, headers=HEADERS)
+    response.raise_for_status()
+    data = response.json()
+    opciones = data.get("options", [])
+    return {opt["value"]: opt["label"] for opt in opciones}
+
+def get_contact_programas_labels():
+    url = f"{BASE_URL}/crm/v3/properties/contacts/programas"
+    response = requests.get(url, headers=HEADERS)
+    response.raise_for_status()
+    data = response.json()
+    opciones = data.get("options", [])
+    return {opt["value"]: opt["label"] for opt in opciones}
+
+def fetch_contacts_programas_por_mes(start_iso, end_iso, label_map):
+    url = f"{BASE_URL}/crm/v3/objects/contacts/search"
+    body = {
+        "properties": [
+            "pais",
+            "createdate",
+            "email",
+            "primer_medio_del_lead",
+            "first_deal_created_date",
+            "programas"
+        ],
+        "limit": 100,
+        "sorts": ["createdate"],
+        "filterGroups": [{
+            "filters": [
+                {"propertyName": "createdate", "operator": "GTE", "value": start_iso},
+                {"propertyName": "createdate", "operator": "LT", "value": end_iso}
+            ]
+        }]
+    }
+    after = None
+    rows = []
+    pbar = tqdm(desc=f"{start_iso[:7]}", unit=" contactos")
+    while True:
+        if after:
+            body["after"] = after
+        resp = requests.post(url, json=body, headers=HEADERS)
+        resp.raise_for_status()
+        data = resp.json()
+        results = data.get("results", [])
+        for c in results:
+            p = c.get("properties", {})
+            programa_val = p.get("programas")
+            programa_lbl = label_map.get(programa_val, programa_val)
+            rows.append({
+                "País": p.get("pais"),
+                "Fecha_creación": iso2date(p.get("createdate")),
+                "Email": p.get("email"),
+                "Primer_medio_del_lead": p.get("primer_medio_del_lead"),
+                "first_deal_created_date": iso2date(p.get("first_deal_created_date")),
+                "Programa": programa_lbl
+            })
+        after = data.get("paging", {}).get("next", {}).get("after")
+        if not after:
+            break
+        time.sleep(0.2)
+    pbar.close()
+    return rows
+
+# ─── CREAR CARPETA DESTINO ───────────────────────────────────────────────────
+DEST_DIR.mkdir(parents=True, exist_ok=True)
+
+# ─── OBTENER DICCIONARIO DE ETIQUETAS ────────────────────────────────────────
+label_map_contactos = get_contact_programas_labels()
+
+# ─── EJECUCIÓN POR MES ───────────────────────────────────────────────────────
+start = dt.parse("2025-01-01").date()
+end = dt.parse("2025-06-01").date()
+current = start
+
+while current < end:
+    next_month = current + relativedelta(months=1)
+    start_iso = current.isoformat()
+    end_iso = next_month.isoformat()
+    registros = fetch_contacts_programas_por_mes(start_iso, end_iso, label_map_contactos)
+    df = pd.DataFrame(registros)
+
+    mes_name = current.strftime("%B").lower()
+    yy = current.year % 100
+    out_file = DEST_DIR / f"fuente_leads_{mes_name}_{yy:02d}.xlsx"
+    df.to_excel(out_file, index=False)
+    print(f"✅ Exportados {len(df)} registros ➜ {out_file}")
+
+    current = next_month 
+
+
+
+
+
+
+
+
+
+#Actualizador
+
+import os
+import time
+import requests
+from pathlib import Path
+from datetime import date
+from dateutil import parser as dt
+from dateutil.relativedelta import relativedelta
+import pandas as pd
+from tqdm import tqdm
+
+# ─── CONFIGURACIÓN ───────────────────────────────────────────────────────────
+TOKEN = ""
+DEST_DIR = Path(r"")
+BASE_URL = "https://api.hubapi.com"
+HEADERS = {"Authorization": f"Bearer {TOKEN}"}
+
+# ─── FUNCIONES ───────────────────────────────────────────────────────────────
+
+def iso2date(iso_str):
+    return dt.parse(iso_str).date() if iso_str else None
+
+def get_programa_labels():
+    url = f"{BASE_URL}/crm/v3/properties/deals/programa"
+    response = requests.get(url, headers=HEADERS)
+    response.raise_for_status()
+    data = response.json()
+    opciones = data.get("options", [])
+    return {opt["value"]: opt["label"] for opt in opciones}
+
+def get_contact_programas_labels():
+    url = f"{BASE_URL}/crm/v3/properties/contacts/programas"
+    response = requests.get(url, headers=HEADERS)
+    response.raise_for_status()
+    data = response.json()
+    opciones = data.get("options", [])
+    return {opt["value"]: opt["label"] for opt in opciones}
+
+def fetch_contacts_programas_por_mes(start_iso, end_iso, label_map):
+    url = f"{BASE_URL}/crm/v3/objects/contacts/search"
+    body = {
+        "properties": [
+            "pais",
+            "createdate",
+            "email",
+            "primer_medio_del_lead",
+            "first_deal_created_date",
+            "programas"
+        ],
+        "limit": 100,
+        "sorts": ["createdate"],
+        "filterGroups": [{
+            "filters": [
+                {"propertyName": "createdate", "operator": "GTE", "value": start_iso},
+                {"propertyName": "createdate", "operator": "LT", "value": end_iso}
+            ]
+        }]
+    }
+    after = None
+    rows = []
+    pbar = tqdm(desc=f"{start_iso[:7]}", unit=" contactos")
+    while True:
+        if after:
+            body["after"] = after
+        resp = requests.post(url, json=body, headers=HEADERS)
+        resp.raise_for_status()
+        data = resp.json()
+        results = data.get("results", [])
+        for c in results:
+            p = c.get("properties", {})
+            programa_val = p.get("programas")
+            programa_lbl = label_map.get(programa_val, programa_val)
+            rows.append({
+                "País": p.get("pais"),
+                "Fecha_creación": iso2date(p.get("createdate")),
+                "Email": p.get("email"),
+                "Primer_medio_del_lead": p.get("primer_medio_del_lead"),
+                "first_deal_created_date": iso2date(p.get("first_deal_created_date")),
+                "Programa": programa_lbl
+            })
+        after = data.get("paging", {}).get("next", {}).get("after")
+        if not after:
+            break
+        time.sleep(0.2)
+    pbar.close()
+    return rows
+
+# ─── CREAR CARPETA DESTINO ───────────────────────────────────────────────────
+DEST_DIR.mkdir(parents=True, exist_ok=True)
+
+# ─── OBTENER DICCIONARIO DE ETIQUETAS ────────────────────────────────────────
+label_map_contactos = get_contact_programas_labels()
+
+# ─── DETERMINAR ÚLTIMA FECHA DE DESCARGA ─────────────────────────────────────
+import glob
+archivos = glob.glob(str(DEST_DIR / "fuente_leads_*.xlsx"))
+ult_fecha = dt.parse("2025-01-01").date()
+
+for f in archivos:
+    try:
+        df = pd.read_excel(f)
+        fechas = pd.to_datetime(df["Fecha_creación"], errors='coerce')
+        max_f = fechas.max().date()
+        if max_f > ult_fecha:
+            ult_fecha = max_f
+    except Exception:
+        continue
+
+start = ult_fecha
+end = date.today() + relativedelta(days=1)
+
+# ─── EJECUCIÓN DESDE ÚLTIMA FECHA ────────────────────────────────────────────
+current = start
+
+while current < end:
+    next_month = current + relativedelta(months=1)
+    start_iso = current.isoformat()
+    end_iso = next_month.isoformat()
+    registros = fetch_contacts_programas_por_mes(start_iso, end_iso, label_map_contactos)
+    df = pd.DataFrame(registros)
+
+    mes_name = current.strftime("%B").lower()
+    yy = current.year % 100
+    out_file = DEST_DIR / f"fuente_leads_{mes_name}_{yy:02d}.xlsx"
+    df.to_excel(out_file, index=False)
+    print(f"✅ Exportados {len(df)} registros ➜ {out_file}")
+
+    current = next_month
