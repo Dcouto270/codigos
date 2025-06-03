@@ -64,3 +64,51 @@ output_file = os.path.join(output_dir, "facebook_ads_2025.xlsx")
 df.to_excel(output_file, index=False)
 
 print(f"✅ Todos los datos de las 3 cuentas guardados en:\n{output_file}")
+
+
+
+
+
+
+
+
+
+
+
+
+#Comprobar en qué cuentas tengo acceso
+
+from facebook_business.api import FacebookAdsApi
+from facebook_business.adobjects.user import User
+
+# === CONFIGURACIÓN ===
+app_id = ''
+app_secret = ''
+access_token = ''
+
+# Inicializa la API
+FacebookAdsApi.init(app_id, app_secret, access_token)
+
+# Instancia el usuario “me”
+me = User(fbid='me')
+
+# Pide todas las cuentas publicitarias a las que tienes acceso
+ad_accounts = me.get_ad_accounts(fields=['account_id','name'])
+
+# Muestra cada cuenta con su ID y nombre
+for acct in ad_accounts:
+    print(f"{acct['name']} → {acct['account_id']}")
+
+
+
+
+
+
+
+
+#TOKEN DURADERO EN INTERNET
+https://graph.facebook.com/oauth/access_token?
+  grant_type=fb_exchange_token&
+  client_id= &
+  client_secret= &
+  fb_exchange_token=
