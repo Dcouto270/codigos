@@ -1,0 +1,66 @@
+from facebook_business.api import FacebookAdsApi
+from facebook_business.adobjects.adaccount import AdAccount
+import datetime
+import os
+import pandas as pd
+
+app_id = ''
+app_secret = ''
+access_token = ''
+
+ad_account_ids = [
+    'act_1004327756263708',
+    'act_1044550273395728',
+    'act_1406326093566398'
+]
+
+# Inicializa la API una sola vez
+FacebookAdsApi.init(app_id, app_secret, access_token)
+
+all_data = []
+
+
+params = {
+    'time_range': {
+        'since': '2025-01-01',
+        'until': datetime.date.today().isoformat()
+    },
+    'time_increment': 'monthly',     # o 'all_days'
+    'level': 'campaign',
+    'fields': ['campaign_id','campaign_name','spend','impressions','clicks','date_start','date_stop'],
+    'limit': 100
+}
+
+# Loop sobre cada cuenta
+for ad_account_id in ad_account_ids:
+    account = AdAccount(ad_account_id)
+    insights = account.get_insights(params=params)
+    
+    # Paginación
+    while True:
+        for item in insights:
+            all_data.append({
+                'Account ID': ad_account_id,
+                'Campaign ID': item.get('campaign_id', ''),
+                'Campaign Name': item.get('campaign_name', ''),
+                'Date Start': item.get('date_start', ''),
+                'Date Stop': item.get('date_stop', ''),
+                'Spend (€)': float(item.get('spend', 0)),
+                'Impressions': int(item.get('impressions', 0)),
+                'Clicks': int(item.get('clicks', 0))
+            })
+        if not insights.load_next_page():
+            break
+
+# Crear DataFrame con pandas
+df = pd.DataFrame(all_data)
+
+# Directorio y fichero de salida
+output_dir = r" "
+os.makedirs(output_dir, exist_ok=True)
+output_file = os.path.join(output_dir, "facebook_ads_2025.xlsx")
+
+# Guardar en Excel
+df.to_excel(output_file, index=False)
+
+print(f"✅ Todos los datos de las 3 cuentas guardados en:\n{output_file}")
