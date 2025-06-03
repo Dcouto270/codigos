@@ -1,0 +1,23 @@
+SELECT
+  TO_CHAR(i.date, 'YYYY-MM') AS mes,
+  CASE
+    WHEN lower(l.name) ILIKE '%master%' THEN
+      TRIM(
+        REGEXP_REPLACE(
+          lower(l.name),
+          '(matr[íi]cula|cursado|reserva de plaza|arancel|máster|master)[\s\-]*',
+          '',
+          'gi'
+        )
+      )
+    ELSE l.name
+  END AS nombre_master_normalizado,
+  ROUND(AVG(i.amount_total), 2) AS precio_medio
+FROM public.account_invoice i
+JOIN public.account_invoice_line l
+  ON i.id = l.id
+WHERE i.date >= '2024-01-01'
+  AND lower(l.name) ILIKE '%master%'
+  AND i.amount_total > 350
+GROUP BY mes, nombre_master_normalizado
+ORDER BY mes, nombre_master_normalizado;
