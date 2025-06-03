@@ -108,7 +108,8 @@ while current < end:
     df.to_excel(out_file, index=False)
     print(f"✅ Exportados {len(df)} registros ➜ {out_file}")
 
-    current = next_month 
+    current = next_month
+
 
 
 
