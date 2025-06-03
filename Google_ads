@@ -1,0 +1,137 @@
+import pandas as pd
+from google.ads.googleads.client import GoogleAdsClient
+
+config = {
+  "developer_token":   "",
+    "client_id":         "",
+    "client_secret":     "",
+    "refresh_token":     "",
+    "use_proto_plus":    True
+}
+
+client     = GoogleAdsClient.load_from_dict(config, version="v19")
+ga_service = client.get_service("GoogleAdsService")
+
+customer_id = ""
+start_date  = "2025-01-01"
+end_date    = "2025-12-31"
+
+# GAQL: gastos, leads, canal y país desde geographic_view
+query = f"""
+    SELECT
+      segments.date,
+      geographic_view.country_criterion_id,
+      segments.ad_network_type,
+      metrics.cost_micros,
+      metrics.conversions
+    FROM geographic_view
+    WHERE segments.date BETWEEN '{start_date}' AND '{end_date}'
+    ORDER BY segments.date
+"""
+
+# Recopila datos
+rows = []
+response = ga_service.search(customer_id=customer_id, query=query)
+for row in response:
+    rows.append({
+        "date":       row.segments.date,
+        "country_id": row.geographic_view.country_criterion_id,
+        "canal":      row.segments.ad_network_type.name,
+        "cost_euros": row.metrics.cost_micros / 1_000_000,
+        "leads":      row.metrics.conversions
+    })
+
+# Exporta a Excel
+df = pd.DataFrame(rows)
+output_path = "ads_2025_gastos_leads_pais.xlsx"
+df.to_excel(output_path, index=False)
+
+print(f"¡Hecho! Fichero generado: {output_path}")
+
+
+
+
+
+
+
+
+
+
+
+from google.ads.googleads.client import GoogleAdsClient
+
+
+config = {
+   "developer_token":   "",
+    "client_id":         "",
+    "client_secret":     "",
+    "refresh_token":     "",
+    "use_proto_plus":    True
+}
+client     = GoogleAdsClient.load_from_dict(config, version="v19")
+ga_service = client.get_service("GoogleAdsService")
+
+MCC_ID     = "9290785810" 
+START, END = "2025-01-01", "2025-12-31"
+
+# Recupera la lista de clientes bajo tu MCC ——
+clients_q = """
+  SELECT
+    customer_client.client_customer
+  FROM
+    customer_client
+  WHERE
+    customer_client.level = 1
+    AND customer_client.status = 'ENABLED'
+"""
+client_ids = [
+    row.customer_client.client_customer.split("/")[-1]
+    for row in ga_service.search(
+        customer_id=MCC_ID,
+        query=clients_q,
+        metadata=[("login-customer-id", MCC_ID)]
+    )
+]
+
+# Para cada cliente, pide métricas de gasto, leads, canal y país ——
+gaql = f"""
+    SELECT
+      segments.date,
+      metrics.cost_micros,
+      metrics.conversions,
+      segments.ad_network_type,
+      geographic_view.country_criterion_id
+    FROM
+      geographic_view
+    WHERE
+      segments.date BETWEEN '{START}' AND '{END}'
+    ORDER BY
+      segments.date
+"""
+
+all_rows = []
+for cid in client_ids:
+    print(f"→ Extrayendo datos de la subcuenta {cid} …")
+    resp = ga_service.search(
+        customer_id=cid,
+        query=gaql,
+        metadata=[("login-customer-id", MCC_ID)]
+    )
+    for r in resp:
+        all_rows.append({
+            "client_id": cid,
+            "date":      r.segments.date,
+            "cost":      r.metrics.cost_micros/1_000_000,
+            "leads":     r.metrics.conversions,
+            "canal":     r.segments.ad_network_type.name,
+            "country":   r.geographic_view.country_criterion_id
+        })
+
+# (Opcional) Agrega o exporta ——
+import pandas as pd
+df = pd.DataFrame(all_rows)
+df.to_excel("mcc_2025_gastos_leads.xlsx", index=False)
+print("✅ Listo: mcc_2025_gastos_leads.xlsx")
+
+
+
