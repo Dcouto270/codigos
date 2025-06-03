@@ -1,0 +1,17 @@
+WITH primer_pago AS (
+  SELECT 
+    "STUDENT_ID",
+    MIN("PAYMENT_DATE")::date AS first_payment
+  FROM student."STUDENT_ACCOUNT"
+  GROUP BY "STUDENT_ID"
+)
+SELECT
+  pp."STUDENT_ID",
+  TO_CHAR(DATE_TRUNC('month', pp.first_payment), 'YYYY-MM') AS mes,
+  -- Total de ingresos en ese mes (se repite en cada fila)
+  COUNT(*) OVER (
+    PARTITION BY DATE_TRUNC('month', pp.first_payment)
+  ) AS total_ingresos
+FROM primer_pago pp
+WHERE EXTRACT(YEAR FROM pp.first_payment) = 2025
+ORDER BY mes, pp."STUDENT_ID";
