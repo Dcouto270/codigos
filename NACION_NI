@@ -1,0 +1,47 @@
+WITH primer_pago AS (
+  SELECT
+    sa."STUDENT_ID",
+    sa."USER_ID",
+    MIN(sa."PAYMENT_DATE")::date AS first_payment
+  FROM student."STUDENT_ACCOUNT" sa
+  GROUP BY sa."STUDENT_ID", sa."USER_ID"
+),
+
+datos_alumnos AS (
+  -- Aquí puede haber duplicados si un alumno tiene varias carreras
+  SELECT
+    sc."STUDENT_ID",
+    pp.first_payment,
+    sud."USER_NATIONALITY" AS nacionalidad
+  FROM student."STUDENT_CAREERS" sc
+  JOIN student."STUDENT_PREREGISTRATION" sp
+    ON sp."STUDENT_CAREER_ID" = sc."ID"
+  JOIN student."STUDENTS" stud
+    ON stud."ID" = sc."STUDENT_ID"
+  JOIN sys."SIS_USERS_DATA" sud
+    ON sud."USER_ID" = stud."USER_ID"
+  JOIN primer_pago pp
+    ON pp."STUDENT_ID" = sc."STUDENT_ID"
+  WHERE
+    DATE_PART('year', sp."PREREGISTRATION_DATE") = 2025
+    AND sud."USER_NATIONALITY" IS NOT NULL
+    AND DATE_PART('year', pp.first_payment) = 2025
+),
+
+distinct_alumnos AS (
+  -- Eliminamos duplicados dejando solo una fila por STUDENT_ID
+  SELECT DISTINCT
+    "STUDENT_ID",
+    first_payment,
+    nacionalidad
+  FROM datos_alumnos
+)
+
+SELECT
+  da."STUDENT_ID",
+  da.first_payment       AS primera_fecha_de_pago,
+  da.nacionalidad,
+  -- Total de alumnos distintos (misma cifra en cada fila)
+  COUNT(*) OVER ()       AS total_alumnos
+FROM distinct_alumnos da
+ORDER BY da.first_payment, da."STUDENT_ID";
