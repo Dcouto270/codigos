@@ -1,0 +1,45 @@
+WITH primer_pago AS (
+  SELECT 
+    "STUDENT_ID",
+    MIN("PAYMENT_DATE") AS "PAYMENT_DATE"
+  FROM student."STUDENT_ACCOUNT"
+  GROUP BY "STUDENT_ID"
+),
+
+preinscritos_2025 AS (
+  SELECT 
+    sc."STUDENT_ID",
+    REGEXP_REPLACE(sc."ID", '[0-9]', '', 'g') AS codigo_formacion,
+    sud."USER_NATIONALITY" AS nacionalidad
+  FROM student."STUDENT_CAREERS" sc
+  JOIN student."STUDENT_PREREGISTRATION" sp 
+    ON sp."STUDENT_CAREER_ID" = sc."ID"
+  JOIN student."STUDENTS" stud 
+    ON stud."ID" = sc."STUDENT_ID"
+  JOIN sys."SIS_USERS_DATA" sud 
+    ON sud."USER_ID" = stud."USER_ID"
+  WHERE DATE_PART('year', sp."PREREGISTRATION_DATE") = 2025
+    AND sud."USER_NATIONALITY" IS NOT NULL
+),
+
+ingresos_con_nac AS (
+  SELECT 
+    pp."PAYMENT_DATE",
+    ac."DESCRIPTION"    AS formacion,
+    p5.nacionalidad
+  FROM primer_pago pp
+  JOIN preinscritos_2025 p5 
+    ON pp."STUDENT_ID" = p5."STUDENT_ID"
+  JOIN academic."ACADEMIC_CAREERS" ac 
+    ON p5.codigo_formacion = ac."CODE"
+)
+
+SELECT 
+  DATE_TRUNC('month', icn."PAYMENT_DATE") AS mes,
+  icn.formacion,
+  icn.nacionalidad,
+  COUNT(*) AS nuevos_ingresos
+FROM ingresos_con_nac icn
+WHERE DATE_PART('year', icn."PAYMENT_DATE") = 2025
+GROUP BY 1, 2, 3
+ORDER BY 1, 2, 3;
