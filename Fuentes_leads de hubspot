@@ -247,3 +247,34 @@ while current < end:
     print(f"✅ Exportados {len(df)} registros ➜ {out_file}")
 
     current = next_month
+
+
+
+
+
+
+#Combinar todos
+
+import pandas as pd
+from pathlib import Path
+
+folder_path = Path(r"C:\Users\David\Desktop\Python_projects\Hubspot\Fuente_leads")
+
+excel_files = list(folder_path.glob("*.xlsx"))
+
+dataframes = []
+for file in excel_files:
+    try:
+        df = pd.read_excel(file)
+        if not df.empty:
+            dataframes.append(df)
+    except Exception as e:
+        print(f"❌ Error leyendo {file.name}: {e}")
+
+if dataframes:
+    df_total = pd.concat(dataframes, ignore_index=True)
+    output_file = folder_path / "Fuente_leads_general.xlsx"
+    df_total.to_excel(output_file, index=False)
+    print(f"✅ Archivo combinado guardado: {output_file}")
+else:
+    print("⚠️ No se encontró ningún Excel válido para combinar.")
